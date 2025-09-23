@@ -1,105 +1,97 @@
 package main
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
+
+	"github.com/qdrant/go-client/qdrant"
+	"github.com/qdrant/go-client/qdrant/models"
 )
 
-// Request structure for /chat
-type ChatRequest struct {
-	Query string `json:"query"`
-	Model string `json:"model"`
-}
+var qdrantClient *qdrant.Client
 
-// Response structure
-type ChatResponse struct {
-	Answer string `json:"answer"`
-}
-
-// -------------------------
-// Replace this with your actual LLM call (Ollama, etc.)
-// For now it just echoes the query + model
-func runLLMQuery(query string, model string) string {
-	return fmt.Sprintf("[Model: %s] Response to: %s", model, query)
-}
-
-// -------------------------
-// Example function to query Qdrant
-func queryQdrant(query string) ([]string, error) {
-	qdrantURL := "http://localhost:6333/collections/your_collection_name/points/search"
-
-	// Example payload
-	payload := map[string]interface{}{
-		"vector": []float32{0.0}, // Replace with actual embedding
-		"limit":  5,
+func init() {
+	var err error
+	qdrantClient, err = qdrant.NewClient(qdrant.WithAddress("localhost:6333"))
+	if err != nil {
+		log.Fatal(err)
 	}
+}
 
-	payloadBytes, _ := json.Marshal(payload)
-	resp, err := http.Post(qdrantURL, "application/json", bytes.NewBuffer(payloadBytes))
+func getContextFromQdrant(query string, topK int) ([]string, error) {
+	// Step 1: Embed the query using Ollama embedding model
+	resp, err := http.Post(
+		"http://localhost:11434/embed",
+		"application/json",
+		bytes.NewReader([]byte(fmt.Sprintf(`{"model":"nomic-embed-text","text":"%s"}`, query))),
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	body, _ := ioutil.ReadAll(resp.Body)
-	var searchResp QdrantSearchResponse
-	err = json.Unmarshal(body, &searchResp)
+	var embedResp struct {
+		Embedding []float32 `json:"embedding"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&embedResp); err != nil {
+		return nil, err
+	}
+
+	// Step 2: Search Qdrant
+	searchResp, err := qdrantClient.Search(context.Background(), &models.SearchPoints{
+		CollectionName: "documents",
+		Vector:         embedResp.Embedding,
+		Limit:          int64(topK),
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	results := []string{}
-	for _, r := range searchResp.Result {
-		if text, ok := r.Payload["text"].(string); ok {
-			results = append(results, text)
+	// Step 3: Extract text from payload
+	contexts := []string{}
+	for _, hit := range searchResp.Result {
+		if text, ok := hit.Payload["text"].(string); ok {
+			contexts = append(contexts, text)
 		}
 	}
-	return results, nil
+
+	return contexts, nil
 }
 
-// -------------------------
-// HTTP Handler for /chat
-func chatHandler(w http.ResponseWriter, r *http.Request) {
-	var req ChatRequest
+func queryHandler(w http.ResponseWriter, r *http.Request) {
+	type Request struct {
+		Query string `json:"query"`
+	}
+	type Response struct {
+		Answer string `json:"answer"`
+	}
+
+	var req Request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
-	model := req.Model
-	if model == "" {
-		model = "gemma:2b" // default
+	contexts, err := getContextFromQdrant(req.Query, 3)
+	if err != nil {
+		http.Error(w, "Failed to get context: "+err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	// Optional: query Qdrant first
-	// snippets, err := queryQdrant(req.Query)
-	// if err != nil {
-	//     log.Println("Qdrant error:", err)
-	// }
+	answer, err := QueryLLM(req.Query, contexts, "gemma:2b")
+	if err != nil {
+		http.Error(w, "LLM query failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-	// Call LLM (replace with actual embedding + LLM query)
-	answer := runLLMQuery(req.Query, model)
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(ChatResponse{Answer: answer})
+	json.NewEncoder(w).Encode(Response{Answer: answer})
 }
 
-// -------------------------
 func main() {
-	port := "8080"
-	if p := os.Getenv("PORT"); p != "" {
-		port = p
-	}
-
-	http.HandleFunc("/chat", chatHandler)
-
-	log.Println("Starting server on port", port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatal("Server failed:", err)
-	}
+	http.HandleFunc("/query", queryHandler)
+	fmt.Println("Server running on :8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }

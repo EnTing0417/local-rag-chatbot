@@ -1,17 +1,19 @@
 services:
   qdrant:
-    image: qdrant/qdrant
+    image: qdrant/qdrant:v1.7.3
     ports:
       - "6333:6333"
     volumes:
-      - ./qdrant_storage:/qdrant/storage
+      - qdrant_storage:/qdrant/storage
 
-  ragbot:
-    build: .
+  ollama:
+    image: ollama/ollama:latest
     ports:
-      - "8080:8080"
-      - "7860:7860"
+      - "11434:11434"
+    environment:
+      - OLLAMA_MODEL_PATH=/models
     volumes:
-      - ./docs:/app/docs
-    depends_on:
-      - qdrant
+      - ./models:/models
+
+volumes:
+  qdrant_storage:
