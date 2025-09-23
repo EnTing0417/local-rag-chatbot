@@ -1,30 +1,16 @@
-# RAG on Windows with Go + Ollama + Qdrant
+Prereqs:
+- Docker Desktop (to run Qdrant)
+- Ollama installed and models pulled: `ollama pull nomic-embed-text` and `ollama pull gemma:2b`
+- Python 3.10+, pip install requirements: `pip install qdrant-client`
+- Go 1.20+
 
-## Steps
-
-1. Start Qdrant:
-   ```wsl
-   docker compose up -d
-   ```
-
-2. Pull Ollama models:
-   ```wsl
-   sudo snap install ollama
+Steps:
+1. Start qdrant: docker compose up -d
+2. Pull ollama models:
    ollama pull nomic-embed-text
    ollama pull gemma:2b
-   ```
-
-3. Ingest docs:
-   ```powershell
-   python ingest.py
-   ```
-
-4. Run server:
-   ```powershell
-   go run main.go
-   ```
-
-5. Query:
-   ```powershell
-   Invoke-RestMethod -Uri "http://localhost:8080/chat" -Method Post -ContentType "application/json" -Body '{"query":"What is in example.txt?"}'
-   ```
+3. Create docs/ and add .txt files
+4. Ingest: python ingest.py
+5. Run server: go run main.go
+6. Query:
+   curl -X POST http://localhost:8080/chat -H "Content-Type: application/json" -d '{"query":"What is in example.txt?"}'
