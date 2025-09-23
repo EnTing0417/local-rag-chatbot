@@ -2,7 +2,7 @@
 """
 ingest.py
 - Reads text files from ./docs/*.txt
-- Obtains embeddings via Ollama (localhost:11434)
+- Obtains embeddings via Ollama (localhost:11435)
 - Creates Qdrant collection `documents` with the correct vector size
 - Upserts points using unnamed vectors (vector: [ ... ])
 """
@@ -14,7 +14,7 @@ from uuid import uuid4
 
 QDRANT_URL = os.environ.get("QDRANT_URL", "http://localhost:6333")
 COLLECTION_NAME = os.environ.get("QDRANT_COLLECTION", "documents")
-OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/embeddings")
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11435/api/embeddings")
 EMBED_MODEL = os.environ.get("EMBED_MODEL", "nomic-embed-text")
 # set to None to auto-detect from embed result:
 VECTOR_DIM = os.environ.get("VECTOR_DIM", "")

@@ -1,1 +1,0 @@
-This is an example document about Ollama, Qdrant and Go based RAG chatbot running on Windows.
