@@ -1,19 +1,21 @@
-services:
-  qdrant:
-    image: qdrant/qdrant:v1.7.3
-    ports:
-      - "6333:6333"
-    volumes:
-      - qdrant_storage:/qdrant/storage
+version: '3.8'
 
-  ollama:
-    image: ollama/ollama:latest
+services:
+  backend:
+    build: ./backend
     ports:
-      - "11434:11434"
+      - "8000:8000"
     environment:
-      - OLLAMA_MODEL_PATH=/models
+      - DEEPSEEK_API_KEY=
     volumes:
-      - ./models:/models
+      - ./data:/app/data
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "7860:7860"
+    depends_on:
+      - backend
 
 volumes:
-  qdrant_storage:
+  data:

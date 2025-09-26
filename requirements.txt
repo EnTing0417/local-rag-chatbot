@@ -1,5 +1,0 @@
-gradio>=3.40
-requests>=2.31
-numpy>=1.25
-tqdm>=4.66
-python-dotenv>=1.0.0

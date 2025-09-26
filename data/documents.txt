@@ -1,0 +1,3 @@
+The Eiffel Tower is located in Paris, France.
+Python is a popular programming language for data science.
+The Great Wall of China is one of the Seven Wonders of the World.
