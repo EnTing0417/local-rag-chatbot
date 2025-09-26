@@ -1,21 +1,30 @@
-version: '3.8'
-
 services:
-  backend:
-    build: ./backend
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    entrypoint: /bin/bash
+    command: -c "ollama serve & sleep 5 && ollama pull llama3 && wait"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - ragnet
+  chatbot:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    environment:
-      - DEEPSEEK_API_KEY=
-    volumes:
-      - ./data:/app/data
-
-  frontend:
-    build: ./frontend
-    ports:
-      - "7860:7860"
     depends_on:
-      - backend
+      - ollama
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    networks:
+      - ragnet
+
+networks:
+  ragnet:
+    driver: bridge
 
 volumes:
-  data:
+  ollama_data:
