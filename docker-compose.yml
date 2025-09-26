@@ -4,7 +4,7 @@ services:
     ports:
       - "11434:11434"
     entrypoint: /bin/bash
-    command: -c "ollama serve & sleep 5 && ollama pull llama3 && wait"
+    command: -c "ollama serve & until ollama list; do sleep 2; done && ollama pull mistral && wait"
     volumes:
       - ollama_data:/root/.ollama
     networks:
